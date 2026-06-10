@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>介護時間管理</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#ebebeb;
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --border:#e0e0e0;--border2:#ccc;
+  --info:#1a6fb5;--info-bg:#e8f2fb;
+  --danger:#c0392b;--danger-bg:#fdecea;
+  --radius:10px;--radius-sm:6px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+    --border:#3a3a3c;--border2:#48484a;
+    --info:#64a8e8;--info-bg:#1a2f45;
+    --danger:#e05a4e;--danger-bg:#3d1a18;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;font-size:15px;color:var(--text);background:var(--bg3);min-height:100vh;padding-bottom:calc(60px + var(--safe-bottom))}
+.app{max-width:600px;margin:0 auto}
+
+/* ナビゲーションバー（下固定） */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:0.5px solid var(--border);display:flex;z-index:100;padding-bottom:var(--safe-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 6px;font-size:10px;color:var(--text3);cursor:pointer;border:none;background:none;gap:3px;-webkit-appearance:none}
+.nav-item.active{color:var(--info)}
+.nav-item i{font-size:22px}
+
+/* セクション */
+.section{display:none;padding:12px}
+.section.active{display:block}
+.section-title{font-size:17px;font-weight:600;margin-bottom:12px;padding-top:4px}
+
+/* カード */
+.card{background:var(--bg);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.card-inner{padding:12px 14px}
+
+/* フォーム */
+.field{margin-bottom:10px}
+.field label{display:block;font-size:13px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.field input,.field select{width:100%;padding:9px 12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:15px;background:var(--bg);color:var(--text);-webkit-appearance:none;appearance:none;font-family:inherit}
+.field input[type=color]{height:40px;padding:4px 8px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field-row.three{grid-template-columns:1fr 1fr 1fr}
+
+/* ボタン */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:var(--radius-sm);font-size:15px;font-weight:500;cursor:pointer;border:none;-webkit-appearance:none;font-family:inherit;width:100%}
+.btn-primary{background:var(--info);color:#fff}
+.btn-primary:active{opacity:0.8}
+.btn-danger{background:var(--danger-bg);color:var(--danger);font-size:14px;padding:7px 12px;width:auto;border-radius:var(--radius-sm)}
+.btn-sm{font-size:13px;padding:5px 10px;width:auto}
+
+/* リスト行 */
+.list-row{display:flex;align-items:center;padding:11px 14px;border-bottom:0.5px solid var(--border);gap:10px}
+.list-row:last-child{border-bottom:none}
+.list-row-main{flex:1;min-width:0}
+.list-row-title{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-row-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.tag{font-size:12px;padding:2px 8px;border-radius:20px;background:var(--info-bg);color:var(--info);font-weight:500}
+.empty{text-align:center;color:var(--text3);padding:28px 16px;font-size:14px}
+
+/* チェックボックス行 */
+.check-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+.check-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--info);flex-shrink:0}
+.check-row label{font-size:15px;color:var(--text)}
+
+/* カレンダー */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px}
+.cal-nav-title{font-size:17px;font-weight:600}
+.cal-nav-btn{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:6px 12px;font-size:16px;color:var(--text);cursor:pointer}
+.cal-grid-head{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.cal-head{text-align:center;font-size:12px;font-weight:600;color:var(--text2);padding:4px 0}
+.cal-head.sat{color:#1a6fb5}.cal-head.sun{color:#c0392b}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-cell{background:var(--bg);border-radius:6px;min-height:64px;padding:4px 3px;cursor:pointer;position:relative}
+.cal-cell:active{background:var(--bg3)}
+.cal-cell.empty{background:transparent;cursor:default}
+.cal-cell.today .cal-day{color:var(--info);font-weight:700}
+.cal-day{font-size:12px;font-weight:500;text-align:right;color:var(--text2);margin-bottom:2px}
+.cal-day.sat{color:#1a6fb5}.cal-day.sun{color:#c0392b}
+.cal-chip{font-size:9px;padding:1px 3px;border-radius:3px;margin-bottom:1px;line-height:1.4;font-weight:500}
+
+/* 集計 */
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.metric{background:var(--bg);border-radius:var(--radius);padding:12px 10px;text-align:center}
+.metric-val{font-size:22px;font-weight:700;color:var(--text)}
+.metric-label{font-size:11px;color:var(--text2);margin-top:2px}
+.sum-row{display:flex;align-items:center;padding:12px 14px;border-bottom:0.5px solid var(--border);gap:10px}
+.sum-row:last-child{border-bottom:none}
+.sum-h{font-size:17px;font-weight:600;color:var(--text);min-width:52px;text-align:right}
+.sum-d{font-size:13px;color:var(--text2);min-width:36px;text-align:right}
+.divider{height:0.5px;background:var(--border);margin:0}
+
+/* モーダル */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:flex-end}
+.modal-overlay.hidden{display:none}
+.modal-sheet{background:var(--bg);border-radius:16px 16px 0 0;width:100%;padding:16px 16px calc(16px + var(--safe-bottom));max-height:85vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 14px}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 事業所 -->
+  <div id="sec-master" class="section active">
+    <div class="section-title">事業所</div>
+    <div class="card card-inner">
+      <div class="field"><label>事業所名</label><input id="ag-name" placeholder="例：ヘルパーの会" /></div>
+      <div class="field-row">
+        <div class="field"><label>略称（3文字以内）</label><input id="ag-abbr" placeholder="例：ヘル" maxlength="4" /></div>
+        <div class="field"><label>カラー</label><input id="ag-color" type="color" value="#1a6fb5" /></div>
+      </div>
+      <button class="btn btn-primary" onclick="addAgency()"><i class="ti ti-plus"></i> 追加</button>
+    </div>
+    <div class="card" id="agency-list-card">
+      <div id="agency-list"><div class="empty">事業所を登録してください</div></div>
+    </div>
+  </div>
+
+  <!-- 週間マスタ -->
+  <div id="sec-weekly" class="section">
+    <div class="section-title">週間スケジュール</div>
+    <div class="card card-inner">
+      <div class="field"><label>事業所</label><select id="wk-agency"></select></div>
+      <div class="field-row">
+        <div class="field"><label>曜日</label>
+          <select id="wk-day">
+            <option value="0">月曜日</option><option value="1">火曜日</option>
+            <option value="2">水曜日</option><option value="3">木曜日</option>
+            <option value="4">金曜日</option><option value="5">土曜日</option>
+            <option value="6">日曜日</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>開始時間</label><input id="wk-start" type="time" /></div>
+        <div class="field"><label>終了時間</label><input id="wk-end" type="time" /></div>
+      </div>
+      <button class="btn btn-primary" onclick="addWeekly()"><i class="ti ti-plus"></i> 追加</button>
+    </div>
+    <div class="card" id="weekly-list-card">
+      <div id="weekly-list"><div class="empty">スケジュールを登録してください</div></div>
+    </div>
+  </div>
+
+  <!-- イレギュラー -->
+  <div id="sec-irregular" class="section">
+    <div class="section-title">イレギュラー修正</div>
+    <div class="card card-inner">
+      <div class="field-row">
+        <div class="field"><label>日付</label><input id="ir-date" type="date" /></div>
+        <div class="field"><label>事業所</label><select id="ir-agency"></select></div>
+      </div>
+      <div class="check-row" style="margin-bottom:8px">
+        <input id="ir-skip" type="checkbox" onchange="toggleSkip()" />
+        <label for="ir-skip">この日はなし（支援なし）</label>
+      </div>
+      <div id="ir-time-fields">
+        <div class="field-row">
+          <div class="field"><label>開始時間</label><input id="ir-start" type="time" /></div>
+          <div class="field"><label>終了時間</label><input id="ir-end" type="time" /></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="addIrregular()"><i class="ti ti-plus"></i> 追加・上書き</button>
+    </div>
+    <div class="card" id="irregular-list-card">
+      <div id="irregular-list"><div class="empty">イレギュラーな修正はありません</div></div>
+    </div>
+  </div>
+
+  <!-- カレンダー -->
+  <div id="sec-calendar" class="section">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="prevMonth()"><i class="ti ti-chevron-left"></i></button>
+      <span class="cal-nav-title" id="cal-title"></span>
+      <button class="cal-nav-btn" onclick="nextMonth()"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid-head">
+      <div class="cal-head">月</div><div class="cal-head">火</div><div class="cal-head">水</div>
+      <div class="cal-head">木</div><div class="cal-head">金</div>
+      <div class="cal-head sat">土</div><div class="cal-head sun">日</div>
+    </div>
+    <div class="cal-grid" id="cal-body"></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3);text-align:center;padding:4px">
+      日付をタップするとイレギュラー修正ができます
+    </div>
+  </div>
+
+  <!-- 集計 -->
+  <div id="sec-summary" class="section">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="prevMonth()"><i class="ti ti-chevron-left"></i></button>
+      <span class="cal-nav-title" id="sum-title"></span>
+      <button class="cal-nav-btn" onclick="nextMonth()"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="metric-grid" id="summary-metrics"></div>
+    <div class="card" id="summary-table-card">
+      <div id="summary-table"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 下部ナビ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('master')" id="nav-master">
+    <i class="ti ti-building"></i><span>事業所</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('weekly')" id="nav-weekly">
+    <i class="ti ti-calendar-week"></i><span>週間</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('irregular')" id="nav-irregular">
+    <i class="ti ti-pencil"></i><span>修正</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('calendar')" id="nav-calendar">
+    <i class="ti ti-calendar"></i><span>カレンダー</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('summary')" id="nav-summary">
+    <i class="ti ti-chart-bar"></i><span>集計</span>
+  </button>
+</nav>
+
+<!-- イレギュラー編集モーダル -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">イレギュラー修正</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const DAYS=['月','火','水','木','金','土','日'];
+let data={agencies:[],weekly:[],irregular:[]};
+let viewYear=new Date().getFullYear();
+let viewMonth=new Date().getMonth();
+const TODAY=new Date().toISOString().slice(0,10);
+
+function save(){try{localStorage.setItem('kaigo_v1',JSON.stringify(data))}catch(e){}}
+function load(){try{const s=localStorage.getItem('kaigo_v1');if(s)data=JSON.parse(s)}catch(e){}}
+load();
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function getAgency(id){return data.agencies.find(a=>a.id===id)||{name:'不明',color:'#888',abbr:'?'}}
+function timeDiff(s,e){
+  if(!s||!e)return 0;
+  const[sh,sm]=s.split(':').map(Number);
+  const[eh,em]=e.split(':').map(Number);
+  return Math.max(0,(eh*60+em)-(sh*60+sm));
+}
+function fmtH(mins){
+  const h=Math.floor(mins/60);
+  const m=mins%60;
+  return m===0?h+'h':h+'h'+m+'m';
+}
+
+function switchTab(t){
+  ['master','weekly','irregular','calendar','summary'].forEach(id=>{
+    document.getElementById('sec-'+id).classList.toggle('active',id===t);
+    document.getElementById('nav-'+id).classList.toggle('active',id===t);
+  });
+  if(t==='weekly'||t==='irregular')populateSelects();
+  if(t==='calendar'){renderCalendar();}
+  if(t==='summary'){renderSummary();}
+}
+
+function populateSelects(){
+  ['wk-agency','ir-agency'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const cur=el.value;
+    el.innerHTML=data.agencies.length
+      ?data.agencies.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')
+      :'<option value="">— 事業所を先に登録 —</option>';
+    if(cur)el.value=cur;
+  });
+}
+
+function toggleSkip(){
+  const skip=document.getElementById('ir-skip').checked;
+  document.getElementById('ir-time-fields').style.opacity=skip?'0.3':'1';
+  document.getElementById('ir-time-fields').style.pointerEvents=skip?'none':'auto';
+}
+
+/* 事業所 */
+function renderAgencies(){
+  const el=document.getElementById('agency-list');
+  if(!data.agencies.length){el.innerHTML='<div class="empty">事業所を登録してください</div>';return;}
+  el.innerHTML=data.agencies.map(a=>`
+    <div class="list-row">
+      <span class="dot" style="background:${a.color}"></span>
+      <div class="list-row-main">
+        <div class="list-row-title">${a.name}</div>
+        <div class="list-row-sub">${a.abbr}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="delAgency('${a.id}')">削除</button>
+    </div>`).join('');
+}
+function addAgency(){
+  const name=document.getElementById('ag-name').value.trim();
+  const abbr=document.getElementById('ag-abbr').value.trim();
+  const color=document.getElementById('ag-color').value;
+  if(!name||!abbr){alert('事業所名と略称を入力してください');return;}
+  data.agencies.push({id:uid(),name,abbr,color});
+  save();renderAgencies();
+  document.getElementById('ag-name').value='';
+  document.getElementById('ag-abbr').value='';
+}
+function delAgency(id){
+  if(!confirm('削除しますか？\n関連するスケジュールも削除されます。'))return;
+  data.agencies=data.agencies.filter(a=>a.id!==id);
+  data.weekly=data.weekly.filter(w=>w.agencyId!==id);
+  data.irregular=data.irregular.filter(ir=>ir.agencyId!==id);
+  save();renderAgencies();renderWeekly();renderIrregular();
+}
+
+/* 週間マスタ */
+function renderWeekly(){
+  const el=document.getElementById('weekly-list');
+  if(!data.weekly.length){el.innerHTML='<div class="empty">スケジュールを登録してください</div>';return;}
+  const sorted=[...data.weekly].sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
+  el.innerHTML=sorted.map(w=>{
+    const ag=getAgency(w.agencyId);
+    return`<div class="list-row">
+      <span class="dot" style="background:${ag.color}"></span>
+      <div class="list-row-main">
+        <div class="list-row-title">${ag.name}　${DAYS[w.day]}曜日</div>
+        <div class="list-row-sub">${w.start} 〜 ${w.end}（${fmtH(timeDiff(w.start,w.end))}）</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="delWeekly('${w.id}')">削除</button>
+    </div>`;
+  }).join('');
+}
+function addWeekly(){
+  const agencyId=document.getElementById('wk-agency').value;
+  const day=parseInt(document.getElementById('wk-day').value);
+  const start=document.getElementById('wk-start').value;
+  const end=document.getElementById('wk-end').value;
+  if(!agencyId){alert('事業所を選択してください');return;}
+  if(!start||!end||start>=end){alert('開始・終了時間を正しく入力してください');return;}
+  const dup=data.weekly.find(w=>w.agencyId===agencyId&&w.day===day);
+  if(dup){if(!confirm('この事業所・曜日の登録を上書きしますか？'))return;data.weekly=data.weekly.filter(w=>w!==dup);}
+  data.weekly.push({id:uid(),agencyId,day,start,end});
+  save();renderWeekly();
+  document.getElementById('wk-start').value='';
+  document.getElementById('wk-end').value='';
+}
+function delWeekly(id){
+  data.weekly=data.weekly.filter(w=>w.id!==id);
+  save();renderWeekly();
+}
+
+/* イレギュラー */
+function renderIrregular(){
+  const el=document.getElementById('irregular-list');
+  if(!data.irregular.length){el.innerHTML='<div class="empty">修正はありません</div>';return;}
+  const sorted=[...data.irregular].sort((a,b)=>b.date.localeCompare(a.date));
+  el.innerHTML=sorted.map(ir=>{
+    const ag=getAgency(ir.agencyId);
+    const sub=ir.skip?'この日はなし':`${ir.start} 〜 ${ir.end}（${fmtH(timeDiff(ir.start,ir.end))}）`;
+    return`<div class="list-row">
+      <span class="dot" style="background:${ag.color}"></span>
+      <div class="list-row-main">
+        <div class="list-row-title">${ir.date}　${ag.name}</div>
+        <div class="list-row-sub">${sub}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="delIrregular('${ir.id}')">削除</button>
+    </div>`;
+  }).join('');
+}
+function addIrregular(dateOverride,agencyOverride){
+  const date=dateOverride||document.getElementById('ir-date').value;
+  const agencyId=agencyOverride||document.getElementById('ir-agency').value;
+  const skip=document.getElementById('ir-skip').checked;
+  const start=document.getElementById('ir-start').value;
+  const end=document.getElementById('ir-end').value;
+  if(!date||!agencyId){alert('日付と事業所を選択してください');return;}
+  if(!skip&&(!start||!end||start>=end)){alert('時間を正しく入力するか「この日はなし」にチェックしてください');return;}
+  data.irregular=data.irregular.filter(ir=>!(ir.date===date&&ir.agencyId===agencyId));
+  data.irregular.push({id:uid(),date,agencyId,skip,start:skip?'':start,end:skip?'':end});
+  save();renderIrregular();
+  if(!dateOverride){
+    document.getElementById('ir-date').value='';
+    document.getElementById('ir-start').value='';
+    document.getElementById('ir-end').value='';
+    document.getElementById('ir-skip').checked=false;
+    toggleSkip();
+  }
+}
+
+/* カレンダーのデータ取得 */
+function getDayEntries(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const dow=(d.getDay()+6)%7;
+  const result=[];
+  data.agencies.forEach(ag=>{
+    const ir=data.irregular.find(ir=>ir.date===dateStr&&ir.agencyId===ag.id);
+    if(ir){
+      if(!ir.skip)result.push({agency:ag,start:ir.start,end:ir.end,irregular:true,mins:timeDiff(ir.start,ir.end)});
+    } else {
+      const wk=data.weekly.find(w=>w.agencyId===ag.id&&w.day===dow);
+      if(wk)result.push({agency:ag,start:wk.start,end:wk.end,irregular:false,mins:timeDiff(wk.start,wk.end)});
+    }
+  });
+  return result;
+}
+
+function renderCalendar(){
+  document.getElementById('cal-title').textContent=`${viewYear}年${viewMonth+1}月`;
+  const first=new Date(viewYear,viewMonth,1);
+  const startDow=(first.getDay()+6)%7;
+  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+  const body=document.getElementById('cal-body');
+
+  let cells=[];
+  for(let i=0;i<startDow;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  while(cells.length%7!==0)cells.push(null);
+
+  body.innerHTML=cells.map((d,i)=>{
+    if(!d)return'<div class="cal-cell empty"></div>';
+    const wi=i%7;
+    const mm=String(viewMonth+1).padStart(2,'0');
+    const dd=String(d).padStart(2,'0');
+    const ds=`${viewYear}-${mm}-${dd}`;
+    const entries=getDayEntries(ds);
+    const chips=entries.map(e=>`<div class="cal-chip" style="background:${e.agency.color}22;color:${e.agency.color}">${e.agency.abbr}${e.irregular?'*':''}</div>`).join('');
+    const dayClass=wi===5?'sat':wi===6?'sun':'';
+    const isToday=ds===TODAY;
+    return`<div class="cal-cell${isToday?' today':''}" onclick="openCalModal('${ds}')">
+      <div class="cal-day ${dayClass}">${d}</div>
+      ${chips}
+    </div>`;
+  }).join('');
+}
+
+/* カレンダーセルタップ → モーダル */
+function openCalModal(dateStr){
+  const entries=getDayEntries(dateStr);
+  const irList=data.irregular.filter(ir=>ir.date===dateStr);
+  const d=new Date(dateStr+'T00:00:00');
+  const dow=(d.getDay()+6)%7;
+  const [y,m,day]=dateStr.split('-');
+  document.getElementById('modal-title').textContent=`${y}年${m}月${day}日（${DAYS[dow]}）`;
+
+  let html='';
+  if(entries.length){
+    html+='<div style="margin-bottom:12px">';
+    entries.forEach(e=>{
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <span class="dot" style="background:${e.agency.color}"></span>
+        <div style="flex:1">
+          <div style="font-weight:500">${e.agency.name}</div>
+          <div style="font-size:13px;color:var(--text2)">${e.start} 〜 ${e.end}（${fmtH(e.mins)}）${e.irregular?'<span style="color:var(--info);font-size:11px"> ✎修正済</span>':''}</div>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  } else {
+    html+='<div style="color:var(--text3);font-size:14px;margin-bottom:12px">この日の支援はありません</div>';
+  }
+
+  html+=`<div style="border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px">
+    <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">イレギュラー修正を追加</div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">事業所</label>
+      <select id="modal-agency" style="width:100%;padding:9px 12px;border:0.5px solid var(--border2);border-radius:6px;font-size:15px;background:var(--bg);color:var(--text)">
+        ${data.agencies.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <input id="modal-skip" type="checkbox" style="width:20px;height:20px;accent-color:var(--info)" onchange="toggleModalSkip()" />
+      <label for="modal-skip" style="font-size:15px">この日はなし</label>
+    </div>
+    <div id="modal-time-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div><label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">開始</label>
+        <input id="modal-start" type="time" style="width:100%;padding:9px 12px;border:0.5px solid var(--border2);border-radius:6px;font-size:15px;background:var(--bg);color:var(--text)" /></div>
+      <div><label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">終了</label>
+        <input id="modal-end" type="time" style="width:100%;padding:9px 12px;border:0.5px solid var(--border2);border-radius:6px;font-size:15px;background:var(--bg);color:var(--text)" /></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveModalIrregular('${dateStr}')"><i class="ti ti-check"></i> 保存</button>
+  </div>`;
+
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function toggleModalSkip(){
+  const skip=document.getElementById('modal-skip').checked;
+  const tf=document.getElementById('modal-time-fields');
+  if(tf){tf.style.opacity=skip?'0.3':'1';tf.style.pointerEvents=skip?'none':'auto';}
+}
+
+function saveModalIrregular(dateStr){
+  const agencyId=document.getElementById('modal-agency').value;
+  const skip=document.getElementById('modal-skip').checked;
+  const start=document.getElementById('modal-start')?document.getElementById('modal-start').value:'';
+  const end=document.getElementById('modal-end')?document.getElementById('modal-end').value:'';
+  if(!agencyId){alert('事業所を選択してください');return;}
+  if(!skip&&(!start||!end||start>=end)){alert('時間を正しく入力するか「この日はなし」にチェックしてください');return;}
+  data.irregular=data.irregular.filter(ir=>!(ir.date===dateStr&&ir.agencyId===agencyId));
+  data.irregular.push({id:uid(),date:dateStr,agencyId,skip,start:skip?'':start,end:skip?'':end});
+  save();renderIrregular();renderCalendar();
+  closeModal();
+}
+
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('modal-overlay'))return;
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+function renderSummary(){
+  document.getElementById('sum-title').textContent=`${viewYear}年${viewMonth+1}月`;
+  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+  const agTotals={};
+  data.agencies.forEach(a=>{agTotals[a.id]={days:0,mins:0};});
+  for(let d=1;d<=daysInMonth;d++){
+    const mm=String(viewMonth+1).padStart(2,'0');
+    const dd=String(d).padStart(2,'0');
+    getDayEntries(`${viewYear}-${mm}-${dd}`).forEach(e=>{
+      agTotals[e.agency.id].days++;agTotals[e.agency.id].mins+=e.mins;
+    });
+  }
+  const totalMins=Object.values(agTotals).reduce((s,v)=>s+v.mins,0);
+  const totalDays=Object.values(agTotals).reduce((s,v)=>s+v.days,0);
+
+  document.getElementById('summary-metrics').innerHTML=`
+    <div class="metric"><div class="metric-val">${fmtH(totalMins)}</div><div class="metric-label">合計時間</div></div>
+    <div class="metric"><div class="metric-val">${totalDays}日</div><div class="metric-label">支援日数</div></div>
+    <div class="metric"><div class="metric-val">${data.agencies.length}所</div><div class="metric-label">事業所数</div></div>`;
+
+  const tb=document.getElementById('summary-table');
+  if(!data.agencies.length){tb.innerHTML='<div class="empty">事業所を登録してください</div>';return;}
+  const rows=data.agencies.map(a=>{
+    const t=agTotals[a.id];
+    return`<div class="sum-row">
+      <span class="dot" style="background:${a.color}"></span>
+      <div style="flex:1;font-size:15px">${a.name}</div>
+      <div class="sum-d">${t.days}日</div>
+      <div class="sum-h">${fmtH(t.mins)}</div>
+    </div>`;
+  }).join('');
+  const total=`<div class="divider"></div>
+    <div class="sum-row" style="background:var(--bg2)">
+      <div style="flex:1;font-weight:700;font-size:15px">合計</div>
+      <div class="sum-d" style="font-weight:700">${totalDays}日</div>
+      <div class="sum-h" style="font-weight:700;color:var(--info)">${fmtH(totalMins)}</div>
+    </div>`;
+  tb.innerHTML=rows+total;
+}
+
+function prevMonth(){viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--;}renderCalendar();renderSummary();}
+function nextMonth(){viewMonth++;if(viewMonth>11){viewMonth=0;viewYear++;}renderCalendar();renderSummary();}
+
+renderAgencies();renderWeekly();renderIrregular();renderCalendar();renderSummary();
+populateSelects();
+</script>
+</body>
+</html>
