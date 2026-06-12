@@ -91,6 +91,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;fo
 .modal-sheet{background:var(--bg);border-radius:16px 16px 0 0;width:100%;padding:16px 16px calc(16px + var(--safe-bottom));max-height:85vh;overflow-y:auto}
 .modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 14px}
 .modal-title{font-size:17px;font-weight:600;margin-bottom:14px}
+.progress-bar-bg{height:5px;background:var(--bg3);border-radius:3px;margin-top:5px;overflow:hidden}
+.progress-bar-fill{height:100%;border-radius:3px;transition:width 0.3s}
+.remain-ok{color:var(--info)}
+.remain-warn{color:var(--warn)}
+.remain-over{color:var(--danger)}
 .info-box{background:var(--warn-bg);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--warn);margin-bottom:12px;line-height:1.5}
 </style>
 </head>
@@ -102,8 +107,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;fo
     <div class="section-title">事業所</div>
     <div class="card card-inner">
       <div class="field"><label>事業所名</label><input id="ag-name" placeholder="例：ヘルパーの会" /></div>
-      <div class="field-row">
+      <div class="field-row three">
         <div class="field"><label>略称（3文字以内）</label><input id="ag-abbr" placeholder="例：ヘル" maxlength="4" /></div>
+        <div class="field"><label>月支給量（時間）</label><input id="ag-quota" type="number" min="0" step="0.5" placeholder="例：40" /></div>
         <div class="field"><label>カラー</label><input id="ag-color" type="color" value="#1a6fb5" /></div>
       </div>
       <button class="btn btn-primary" onclick="addAgency()"><i class="ti ti-plus"></i> 追加</button>
@@ -245,16 +251,23 @@ let viewYear=new Date().getFullYear();
 let viewMonth=new Date().getMonth();
 const TODAY=new Date().toISOString().slice(0,10);
 
-function save(){try{localStorage.setItem('kaigo_v2',JSON.stringify(data))}catch(e){}}
+function save(){try{localStorage.setItem('kaigo_v3',JSON.stringify(data))}catch(e){}}
 function load(){
   try{
-    // v2データを優先、なければv1から移行
+    const s3=localStorage.getItem('kaigo_v3');
+    if(s3){data=JSON.parse(s3);return;}
+    // v2から移行
     const s2=localStorage.getItem('kaigo_v2');
-    if(s2){data=JSON.parse(s2);return;}
+    if(s2){
+      data=JSON.parse(s2);
+      data.agencies=(data.agencies||[]).map(a=>({...a,quota:null}));
+      save();return;
+    }
+    // v1から移行
     const s1=localStorage.getItem('kaigo_v1');
     if(s1){
       data=JSON.parse(s1);
-      // v1データにtwoStaffフィールドを追加
+      data.agencies=(data.agencies||[]).map(a=>({...a,quota:null}));
       data.weekly=(data.weekly||[]).map(w=>({...w,twoStaff:false}));
       data.irregular=(data.irregular||[]).map(ir=>({...ir,twoStaff:false}));
       save();
@@ -309,25 +322,61 @@ function toggleSkip(){
 function renderAgencies(){
   const el=document.getElementById('agency-list');
   if(!data.agencies.length){el.innerHTML='<div style="padding:28px 16px;text-align:center;color:var(--text3);font-size:14px">事業所を登録してください</div>';return;}
-  el.innerHTML=data.agencies.map(a=>`
-    <div class="list-row">
+  el.innerHTML=data.agencies.map(a=>{
+    const quotaTxt=a.quota!=null?`月支給量：${a.quota}h`:'支給量：未設定';
+    return`<div class="list-row">
       <span class="dot" style="background:${a.color}"></span>
       <div class="list-row-main">
-        <div class="list-row-title">${a.name}</div>
-        <div class="list-row-sub">${a.abbr}</div>
+        <div class="list-row-title">${a.name}　<span class="tag">${a.abbr}</span></div>
+        <div class="list-row-sub">${quotaTxt}</div>
       </div>
+      <button class="btn btn-sm" style="background:var(--info-bg);color:var(--info);margin-right:4px" onclick="openEditAgency('${a.id}')">編集</button>
       <button class="btn btn-danger btn-sm" onclick="delAgency('${a.id}')">削除</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function openEditAgency(id){
+  const a=data.agencies.find(x=>x.id===id);
+  if(!a)return;
+  document.getElementById('modal-title').textContent='事業所を編集';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="field"><label>事業所名</label><input id="edit-ag-name" value="${a.name}" /></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:10px">
+      <div class="field" style="margin:0"><label>略称</label><input id="edit-ag-abbr" value="${a.abbr}" maxlength="4" /></div>
+      <div class="field" style="margin:0"><label>月支給量（時間）</label><input id="edit-ag-quota" type="number" min="0" step="0.5" value="${a.quota!=null?a.quota:''}" placeholder="未設定" /></div>
+      <div class="field" style="margin:0"><label>カラー</label><input id="edit-ag-color" type="color" value="${a.color}" style="height:40px;padding:4px 6px;width:100%;border:0.5px solid var(--border2);border-radius:6px" /></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveEditAgency('${id}')"><i class="ti ti-check"></i> 保存</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function saveEditAgency(id){
+  const name=document.getElementById('edit-ag-name').value.trim();
+  const abbr=document.getElementById('edit-ag-abbr').value.trim();
+  const color=document.getElementById('edit-ag-color').value;
+  const quotaRaw=document.getElementById('edit-ag-quota').value;
+  const quota=quotaRaw!==''?parseFloat(quotaRaw):null;
+  if(!name||!abbr){alert('事業所名と略称を入力してください');return;}
+  const idx=data.agencies.findIndex(x=>x.id===id);
+  if(idx===-1)return;
+  data.agencies[idx]={...data.agencies[idx],name,abbr,color,quota};
+  save();renderAgencies();
+  document.getElementById('modal-overlay').classList.add('hidden');
 }
 function addAgency(){
   const name=document.getElementById('ag-name').value.trim();
   const abbr=document.getElementById('ag-abbr').value.trim();
   const color=document.getElementById('ag-color').value;
+  const quotaRaw=document.getElementById('ag-quota').value;
+  const quota=quotaRaw!==''?parseFloat(quotaRaw):null; // 時間単位、nullは未設定
   if(!name||!abbr){alert('事業所名と略称を入力してください');return;}
-  data.agencies.push({id:uid(),name,abbr,color});
+  data.agencies.push({id:uid(),name,abbr,color,quota});
   save();renderAgencies();
   document.getElementById('ag-name').value='';
   document.getElementById('ag-abbr').value='';
+  document.getElementById('ag-quota').value='';
 }
 function delAgency(id){
   if(!confirm('削除しますか？\n関連するスケジュールも削除されます。'))return;
@@ -607,12 +656,35 @@ function renderSummary(){
   html+=data.agencies.map(a=>{
     const t=agTotals[a.id];
     const diff=t.calcMins!==t.realMins;
-    return`<div class="sum-row">
-      <span class="dot" style="background:${a.color}"></span>
-      <div style="flex:1;font-size:15px">${a.name}</div>
-      <div class="sum-d">${t.days}日</div>
-      <div class="sum-h" style="font-size:14px">${fmtH(t.realMins)}</div>
-      <div class="sum-calc">${diff?fmtH(t.calcMins):'-'}</div>
+    const usedMins=t.calcMins; // 算定時間ベースで残時間計算
+    const quotaMins=a.quota!=null?a.quota*60:null;
+
+    let remainHtml='';
+    if(quotaMins!=null){
+      const remainMins=quotaMins-usedMins;
+      const pct=Math.min(100,Math.round(usedMins/quotaMins*100));
+      const overUsed=remainMins<0;
+      const nearLimit=!overUsed&&pct>=80;
+      const cls=overUsed?'remain-over':nearLimit?'remain-warn':'remain-ok';
+      const barColor=overUsed?'var(--danger)':nearLimit?'var(--warn)':'var(--info)';
+      remainHtml=`
+        <div style="margin-top:3px;font-size:12px" class="${cls}">
+          ${overUsed?'超過 '+fmtH(Math.abs(remainMins)):'残 '+fmtH(remainMins)}　（${pct}%使用）
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>`;
+    }
+
+    return`<div style="padding:12px 14px;border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${remainHtml?4:0}px">
+        <span class="dot" style="background:${a.color}"></span>
+        <div style="flex:1;font-size:15px">${a.name}</div>
+        <div class="sum-d">${t.days}日</div>
+        <div class="sum-h" style="font-size:14px">${fmtH(t.realMins)}</div>
+        <div class="sum-calc">${diff?fmtH(t.calcMins):'-'}</div>
+      </div>
+      ${remainHtml}
     </div>`;
   }).join('');
 
